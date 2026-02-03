@@ -1,6 +1,7 @@
 #include <iostream>
 #include <random>
 #include <vector>
+#include <chrono>
 
 using namespace std;
 
@@ -40,12 +41,30 @@ void change_matrix (vector<vector<int>>& matrix)
 }
 
 int main() {
-    int size = 5;
+    int size = 10;
     vector<vector<int>> matrix(size, vector<int>(size));
+
     init_matrix(matrix);
-    print_matrix(matrix);
+
     change_matrix(matrix);
+    change_matrix(matrix);
+
+    //print_matrix(matrix);
     cout << endl;
-    print_matrix(matrix);
+
+    auto start = chrono::high_resolution_clock::now();
+    change_matrix(matrix);
+    auto end = chrono::high_resolution_clock::now();
+
+    chrono::duration<double, milli> duration = end - start;
+
+    //print_matrix(matrix);
+
+    volatile int rand_el;
+    rand_el = matrix[rand() % size][rand() % size];
+    cout << rand_el << endl;
+
+    cout << "Time: " << duration.count() << " ms" << endl;
+
     return 0;
 }

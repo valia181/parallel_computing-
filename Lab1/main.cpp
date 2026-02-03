@@ -41,7 +41,7 @@ void change_matrix (vector<vector<int>>& matrix)
 }
 
 int main() {
-    int size = 10;
+    int size = 10000;
     vector<vector<int>> matrix(size, vector<int>(size));
 
     init_matrix(matrix);

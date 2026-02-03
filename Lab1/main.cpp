@@ -1,25 +1,51 @@
 #include <iostream>
+#include <random>
+#include <vector>
 
-// TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
-int main() {
-    // TIP Press <shortcut actionId="RenameElement"/> when your caret is at the
-    // <b>lang</b> variable name to see how CLion can help you rename it.
-    auto lang = "C++";
-    std::cout << "Hello and welcome to " << lang << "!\n";
+using namespace std;
 
-    for (int i = 1; i <= 5; i++) {
-        // TIP Press <shortcut actionId="Debug"/> to start debugging your code.
-        // We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/>
-        // breakpoint for you, but you can always add more by pressing
-        // <shortcut actionId="ToggleLineBreakpoint"/>.
-        std::cout << "i = " << i << std::endl;
+void print_matrix (vector<vector<int>>& matrix)
+{
+    for (int i = 0; i < matrix.size(); i++)
+    {
+        for (int j = 0; j < matrix.size(); j++)
+        {
+            cout << matrix[i][j] << " ";
+        }
+        cout << endl;
     }
-
-    return 0;
 }
 
-// TIP See CLion help at <a
-// href="https://www.jetbrains.com/help/clion/">jetbrains.com/help/clion/</a>.
-//  Also, you can try interactive lessons for CLion by selecting
-//  'Help | Learn IDE Features' from the main menu.
+void init_matrix (vector<vector<int>>& matrix)
+{
+    srand(time(0));
+    for (int i = 0; i < matrix.size(); i++)
+    {
+        for (int j = 0; j < matrix.size(); j++)
+        {
+            matrix[i][j] = rand() % 100;
+        }
+    }
+}
+
+void change_matrix (vector<vector<int>>& matrix)
+{
+    for (int i = 0; i < matrix.size(); i++)
+    {
+        for (int j = i + 1; j < matrix.size(); j ++)
+        {
+            swap(matrix[i][j], matrix[j][i]);
+        }
+    }
+}
+
+int main() {
+    int size = 5;
+    vector<vector<int>> matrix(size, vector<int>(size));
+    init_matrix(matrix);
+    print_matrix(matrix);
+    change_matrix(matrix);
+    cout << endl;
+    print_matrix(matrix);
+    return 0;
+}

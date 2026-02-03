@@ -67,5 +67,4 @@ int main() {
     cout << "Time: " << duration.count() << " ms" << endl;
 
     return 0;
-    
 }

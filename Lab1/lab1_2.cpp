@@ -8,13 +8,10 @@ int main() {
     int size = 5;
     Matrix matrix1(size);
 
-    matrix1.change_matrix();
-    matrix1.change_matrix();
-
     matrix1.print_matrix();
 
     auto start = chrono::high_resolution_clock::now();
-    matrix1.change_matrix();
+
     auto end = chrono::high_resolution_clock::now();
 
     chrono::duration<double, milli> duration = end - start;

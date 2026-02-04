@@ -5,63 +5,78 @@
 
 using namespace std;
 
-void print_matrix (vector<vector<int>>& matrix)
-{
-    for (int i = 0; i < matrix.size(); i++)
+class Matrix {
+private:
+    vector<vector<int>> matrix;
+    int size;
+
+public:
+    void init_matrix ()
     {
-        for (int j = 0; j < matrix.size(); j++)
+        srand(time(0));
+        for (int i = 0; i < matrix.size(); i++)
         {
-            cout << matrix[i][j] << " ";
+            for (int j = 0; j < matrix.size(); j++)
+            {
+                matrix[i][j] = rand() % 100;
+            }
+        }
+    }
+
+    Matrix(int size): size (size){
+        matrix.resize(size, vector<int>(size));
+        init_matrix();
+    }
+
+    void print_matrix ()
+    {
+        for (int i = 0; i < matrix.size(); i++)
+        {
+            for (int j = 0; j < matrix.size(); j++)
+            {
+                cout << matrix[i][j] << " ";
+            }
+            cout << endl;
         }
         cout << endl;
     }
-}
 
-void init_matrix (vector<vector<int>>& matrix)
-{
-    srand(time(0));
-    for (int i = 0; i < matrix.size(); i++)
+    void change_matrix ()
     {
-        for (int j = 0; j < matrix.size(); j++)
+        for (int i = 0; i < matrix.size(); i++)
         {
-            matrix[i][j] = rand() % 100;
+            for (int j = i + 1; j < matrix.size(); j ++)
+            {
+                swap(matrix[i][j], matrix[j][i]);
+            }
         }
     }
-}
 
-void change_matrix (vector<vector<int>>& matrix)
-{
-    for (int i = 0; i < matrix.size(); i++)
+    int volatile return_rand ()
     {
-        for (int j = i + 1; j < matrix.size(); j ++)
-        {
-            swap(matrix[i][j], matrix[j][i]);
-        }
+        int rand_el = matrix[rand() % size][rand() % size];
+        return rand_el;
     }
-}
+};
 
 int main() {
-    int size = 10000;
-    vector<vector<int>> matrix(size, vector<int>(size));
+    int size = 5;
+    Matrix matrix1(size);
 
-    init_matrix(matrix);
+    matrix1.change_matrix();
+    matrix1.change_matrix();
 
-    change_matrix(matrix);
-    change_matrix(matrix);
-
-    //print_matrix(matrix);
-    cout << endl;
+    matrix1.print_matrix();
 
     auto start = chrono::high_resolution_clock::now();
-    change_matrix(matrix);
+    matrix1.change_matrix();
     auto end = chrono::high_resolution_clock::now();
 
     chrono::duration<double, milli> duration = end - start;
 
-    //print_matrix(matrix);
+    matrix1.print_matrix();
 
-    volatile int rand_el;
-    rand_el = matrix[rand() % size][rand() % size];
+    volatile int rand_el = matrix1.return_rand();
     cout << rand_el << endl;
 
     cout << "Time: " << duration.count() << " ms" << endl;

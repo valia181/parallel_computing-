@@ -40,9 +40,9 @@ public:
         cout << endl;
     }
 
-    void change_matrix ()
+    void change_matrix (int n_th, int thread_id)
     {
-        for (int i = 0; i < matrix.size(); i++)
+        for (int i = thread_id; i < matrix.size(); i += n_th)
         {
             for (int j = i + 1; j < matrix.size(); j ++)
             {

@@ -2,6 +2,7 @@
 #include <chrono>
 #include "matrix.cpp"
 #include <thread>
+#include <fstream>
 
 using namespace std;
 
@@ -21,50 +22,68 @@ void start_th (int n_th, vector<thread> &threads, Matrix &matrix)
 
 
 int main() {
-    int size = 50000;
+    int size = 5000;
     int n_th = 8;
     Matrix matrix1(size);
 
-    matrix1.change_matrix(1, 0);
-    matrix1.change_matrix(1, 0);
+//    matrix1.change_matrix(1, 0);
+//    matrix1.change_matrix(1, 0);
 
     //matrix1.print_matrix();
 
-    auto start = chrono::high_resolution_clock::now();
-    matrix1.change_matrix(1, 0);
-    auto end = chrono::high_resolution_clock::now();
+//    auto start = chrono::high_resolution_clock::now();
 
-    chrono::duration<double, milli> duration = end - start;
+//    matrix1.change_matrix(1, 0);
+
+//    auto end = chrono::high_resolution_clock::now();
+//
+//    chrono::duration<double, milli> duration = end - start;
 
     //matrix1.print_matrix();
-
-    matrix1.change_matrix(1, 0);
-
-    volatile int rand_el = matrix1.return_rand();
-    cout << rand_el << endl;
-
-    cout << "Time: " << duration.count() << " ms" << endl;
+//
+//    volatile int rand_el = matrix1.return_rand();
+//    cout << rand_el << endl;
+//
+//    cout << "Time: " << duration.count() << " ms" << endl;
 
     vector<thread> threads;
+    vector<int> sizes = {100, 1000, 5000, 10000, 20000};
+    vector<int> threads_count = {2, 4, 8, 16, 32, 64};
 
-    //matrix1.print_matrix();
+    ofstream results_file("results.csv");
 
-    auto start1 = chrono::high_resolution_clock::now();
+    for (int size: sizes)
+    {
+        Matrix matrix2(size);
 
-    start_th(n_th, threads, matrix1);
-    threads.clear();
-    start_th(n_th, threads, matrix1);
+        for (int thread_num: threads_count)
+        {
+            threads.clear();
 
-    auto end1 = chrono::high_resolution_clock::now();
+            start_th(thread_num, threads, matrix2);
+            threads.clear();
+            start_th(thread_num, threads, matrix2);
+            threads.clear();
 
-    chrono::duration<double, milli> duration1 = end1 - start1;
+            auto start = chrono::high_resolution_clock::now();
 
-    //matrix1.print_matrix();
+            start_th(thread_num, threads, matrix2);
 
-    volatile int rand_el1 = matrix1.return_rand();
-    cout << rand_el1 << endl;
+            auto end = chrono::high_resolution_clock::now();
 
-    cout << "Time with threads: " << duration1.count() << " ms" << endl;
+            threads.clear();
+
+            chrono::duration<double, milli> duration = end - start;
+
+            results_file << size << "," << thread_num << "," << duration.count() << endl;
+
+            volatile int rand_el = matrix2.return_rand();
+
+            cout << "Thread_num: " << thread_num << ", " << duration.count() << " ms, " << "rand_el: " << rand_el << endl;
+        }
+    }
+
+    results_file.close();
 
     return 0;
 }

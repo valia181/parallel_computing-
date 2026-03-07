@@ -19,7 +19,7 @@ void printResults(string nameFunction, Result res, chrono::duration<double, mill
 int main() {
     int numThreads = 4;
 
-    vector<int> sizes = {10, 100, 1000, 10000, 100000, 1000000, 10000000};
+    vector<int> sizes = {1000, 10000, 100000, 1000000, 10000000};
 
     ofstream csvFile("result.csv");
 

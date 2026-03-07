@@ -51,9 +51,24 @@ Result Array::findMutex(int numThreads)
 
     auto localWithThreads = [&](int thread_id)
     {
-        int local_min = data[thread_id];
-        int local_max = data[thread_id];
-        for (int i = thread_id; i < size; i += numThreads)
+        int chunk_size = size / numThreads;
+        int start_idx = thread_id * chunk_size;
+        int end_idx;
+        if (thread_id == numThreads - 1)
+        {
+            end_idx = size;
+        }
+        else
+        {
+            end_idx = start_idx + chunk_size;
+        }
+
+        if (start_idx >= size) return;
+
+        int local_min = data[start_idx];
+        int local_max = data[start_idx];
+
+        for (int i = start_idx + 1; i < end_idx; i++)
         {
             if (data[i] < local_min) local_min = data[i];
             if (data[i] > local_max) local_max = data[i];
@@ -79,16 +94,31 @@ Result Array::findMutex(int numThreads)
 
 Result Array::findCAS(int numThreads)
 {
-    atomic<int> atomic_min = data[0];
-    atomic<int> atomic_max = data[0];
+    atomic<int> atomic_min{data[0]};
+    atomic<int> atomic_max{data[0]};
 
     vector<thread> threads;
 
     auto localWithCAS = [&](int thread_id)
     {
-        int local_min = data[thread_id];
-        int local_max = data[thread_id];
-        for (int i = thread_id; i < size; i += numThreads)
+        int chunk_size = size / numThreads;
+        int start_idx = thread_id * chunk_size;
+        int end_idx;
+        if (thread_id == numThreads - 1)
+        {
+            end_idx = size;
+        }
+        else
+        {
+            end_idx = start_idx + chunk_size;
+        }
+
+        if (start_idx >= size) return;
+
+        int local_min = data[start_idx];
+        int local_max = data[start_idx];
+
+        for (int i = start_idx + 1; i < end_idx; i++)
         {
             if (data[i] < local_min) local_min = data[i];
             if (data[i] > local_max) local_max = data[i];
@@ -98,7 +128,6 @@ Result Array::findCAS(int numThreads)
         do
         {
             if (local_min >= curr_min) break;
-
         }
         while (!atomic_min.compare_exchange_weak(curr_min, local_min));
 
@@ -106,7 +135,6 @@ Result Array::findCAS(int numThreads)
         do
         {
             if (local_max <= curr_max) break;
-
         }
         while (!atomic_max.compare_exchange_weak(curr_max, local_max));
     };

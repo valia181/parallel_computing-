@@ -37,6 +37,7 @@ int main() {
 
     // Mutex
     int numThreads = 2;
+
     auto start_mutex = chrono::high_resolution_clock::now();
 
     Result res_mutex = arr.findMutex(numThreads);
@@ -45,6 +46,16 @@ int main() {
     chrono::duration<double, milli> duration_mutex = end_mutex - start_mutex;
 
     printResults("With mutex", res_mutex, duration_mutex);
+
+    // CAS
+    auto start_CAS = chrono::high_resolution_clock::now();
+
+    Result res_CAS = arr.findCAS(numThreads);
+
+    auto end_CAS = chrono::high_resolution_clock::now();
+    chrono::duration<double, milli> duration_CAS = end_CAS - start_CAS;
+
+    printResults("With CAS", res_CAS, duration_CAS);
 
     return 0;
 }

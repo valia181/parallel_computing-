@@ -3,6 +3,7 @@
 #include <iostream>
 #include <mutex>
 #include <atomic>
+#include <thread>
 
 Array::Array(int n) : size(n)
 {

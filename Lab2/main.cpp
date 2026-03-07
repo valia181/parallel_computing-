@@ -1,7 +1,7 @@
 #include <iostream>
 #include <chrono>
-#include <thread>
 #include <string>
+#include <fstream>
 #include "Array.cpp"
 
 using namespace std;
@@ -17,45 +17,59 @@ void printResults(string nameFunction, Result res, chrono::duration<double, mill
 }
 
 int main() {
-    int size = 10;
+    int numThreads = 4;
 
-    Array arr(size);
+    vector<int> sizes = {10, 100, 1000, 10000, 100000, 1000000, 10000000};
 
-    arr.printData();
-    cout << endl;
+    ofstream csvFile("result.csv");
 
-    // Sequence algorithm
+    csvFile << "Array_Size,Num_Threads,Seq_Time,Mutex_Time,CAS_Time\n";
 
-    auto start_seq = chrono::high_resolution_clock::now();
 
-    Result res_seq = arr.findSeq();
+    for (int size : sizes) {
+        cout << "Size: " << size << endl;
 
-    auto end_seq = chrono::high_resolution_clock::now();
-    chrono::duration<double, milli> duration_seq = end_seq - start_seq;
+        Array arr(size);
 
-    printResults("Sequence algorithm", res_seq, duration_seq);
+        // Sequence algorithm
+        auto start_seq = chrono::high_resolution_clock::now();
 
-    // Mutex
-    int numThreads = 2;
+        Result res_seq = arr.findSeq();
 
-    auto start_mutex = chrono::high_resolution_clock::now();
+        auto end_seq = chrono::high_resolution_clock::now();
 
-    Result res_mutex = arr.findMutex(numThreads);
+        chrono::duration<double, milli> duration_seq = end_seq - start_seq;
 
-    auto end_mutex = chrono::high_resolution_clock::now();
-    chrono::duration<double, milli> duration_mutex = end_mutex - start_mutex;
+        // Mutex
+        auto start_mutex = chrono::high_resolution_clock::now();
 
-    printResults("With mutex", res_mutex, duration_mutex);
+        Result res_mutex = arr.findMutex(numThreads);
 
-    // CAS
-    auto start_CAS = chrono::high_resolution_clock::now();
+        auto end_mutex = chrono::high_resolution_clock::now();
 
-    Result res_CAS = arr.findCAS(numThreads);
+        chrono::duration<double, milli> duration_mutex = end_mutex - start_mutex;
 
-    auto end_CAS = chrono::high_resolution_clock::now();
-    chrono::duration<double, milli> duration_CAS = end_CAS - start_CAS;
+        // CAS
+        auto start_CAS = chrono::high_resolution_clock::now();
 
-    printResults("With CAS", res_CAS, duration_CAS);
+        Result res_CAS = arr.findCAS(numThreads);
+
+        auto end_CAS = chrono::high_resolution_clock::now();
+
+        chrono::duration<double, milli> duration_CAS = end_CAS - start_CAS;
+
+        printResults("Sequence", res_seq, duration_seq);
+        printResults("Mutex", res_mutex, duration_mutex);
+        printResults("CAS", res_CAS, duration_CAS);
+
+        csvFile << size << ","
+                << numThreads << ","
+                << duration_seq.count() << ","
+                << duration_mutex.count() << ","
+                << duration_CAS.count() << "\n";
+    }
+
+    csvFile.close();
 
     return 0;
 }

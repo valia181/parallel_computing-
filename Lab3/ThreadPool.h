@@ -5,35 +5,41 @@
 #include <thread>
 #include <condition_variable>
 #include <functional>
-#include "TaskQueue.h"
+#include "TaskQueue.cpp"
 
 class ThreadPool {
 public:
-    ThreadPool(int threads, int queues);
+    ThreadPool() = default;
     ~ThreadPool();
 
-    void initialize();
+    ThreadPool(const ThreadPool& other) = delete;
+    ThreadPool(ThreadPool&& other) = delete;
+    ThreadPool& operator=(const ThreadPool& rhs) = delete;
+    ThreadPool& operator=(ThreadPool&& rhs) = delete;
+
+    void initialize(size_t num_queues, size_t threads_per_queue);
     void terminate();
+
+    void pause();
+    void resume();
 
     void add_task(Task task);
 
-    bool working() const;
-    bool working_unsafe() const;
-
 private:
-    void routine(int queue_index);
+    bool working_unsafe() const;
+    void routine(size_t queue_index);
 
-    int m_thread_count;
-    int m_queue_count;
+    size_t m_num_queues = 0;
 
-    TaskQueue* m_queues;
-    thread* m_workers;
-
-    mutable condition_variable_any m_task_waiter;
     mutable read_write_lock m_rw_lock;
+
+    std::vector<std::condition_variable_any*> m_waiters;
+    std::vector<std::thread> m_workers;
+    std::vector<TaskQueue*> m_task_queues;
 
     bool m_initialized = false;
     bool m_terminated = false;
+    bool m_paused = false;
 };
 
 #endif

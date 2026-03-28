@@ -9,7 +9,12 @@ void TaskQueue::push(Task task)
 bool TaskQueue::pop(Task& task)
 {
     write_lock lock(m_rw_lock);
-    if (m_tasks.empty()) return false;
+
+    if (m_tasks.empty())
+    {
+        return false;
+    }
+
     task = std::move(m_tasks.front());
     m_tasks.pop();
     return true;
@@ -18,11 +23,20 @@ bool TaskQueue::pop(Task& task)
 void TaskQueue::clear()
 {
     write_lock lock(m_rw_lock);
-    while (!m_tasks.empty()) m_tasks.pop();
+    while (!m_tasks.empty())
+    {
+        m_tasks.pop();
+    }
 }
 
 bool TaskQueue::empty() const
 {
     read_lock lock(m_rw_lock);
     return m_tasks.empty();
+}
+
+size_t TaskQueue::size() const
+{
+    read_lock lock(m_rw_lock);
+    return m_tasks.size();
 }

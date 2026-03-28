@@ -4,16 +4,13 @@
 #include <functional>
 #include <chrono>
 
-using namespace std;
-
 struct Task {
-    function<void()> func;
+    std::function<void()> action;
     int id;
 
-    void execute()
-    {
-        if (func) func();
-    }
+    Task() = default;
+
+    Task(std::function<void()> f, int task_id): action(std::move(f)), id(task_id) {}
 };
 
 #endif //LAB3_TASK_H

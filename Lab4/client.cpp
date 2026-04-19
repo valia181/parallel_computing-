@@ -2,11 +2,15 @@
 #include <vector>
 #include <winsock2.h>
 #include "protocol.h"
+#include "Matrix.cpp"
 
 #pragma comment(lib, "ws2_32.lib")
 
 #define PORT 666
 #define SERVER_ADDR "127.0.0.1"
+
+int MATRIX_SIZE = (rand() % 8) + 2;
+int THREADS = 3;
 
 int main() {
     std::cout << "Starting Client..." << std::endl;
@@ -42,8 +46,8 @@ int main() {
     send_all(client_socket, (char*)&header, sizeof(header));
 
     ConfigPayload payload;
-    payload.matrix_size = htonl(5000);
-    payload.threads_count = htonl(8);
+    payload.matrix_size = htonl(MATRIX_SIZE);
+    payload.threads_count = htonl(THREADS);
     send_all(client_socket, (char*)&payload, sizeof(payload));
 
     std::cout << "Configuration sent. Waiting for confirmation..." << std::endl;
@@ -55,29 +59,58 @@ int main() {
         {
             std::cout << "Server confirmed configuration (ACK_CONFIG)!" << std::endl;
 
-            int matrix_size = 10;
-            int elements_count = matrix_size * matrix_size;
-            std::vector<int32_t> matrix(elements_count);
+            Matrix client_matrix(MATRIX_SIZE);
+            std::cout << "Original Matrix:" << std::endl;
+            client_matrix.print_matrix();
 
-            for (int i = 0; i < elements_count; ++i)
-            {
-                matrix[i] = htonl(i + 1);
-            }
+            client_matrix.to_network();
 
             PacketHeader data_header;
             data_header.command = htonl(SEND_DATA);
-            data_header.payload_size = htonl(elements_count * sizeof(int32_t));
-            send_all(client_socket, (char*)&data_header, sizeof(data_header));
+            data_header.payload_size = htonl(client_matrix.get_byte_size());
 
-            std::cout << "\nSending matrix data (" << elements_count * sizeof(int32_t) << " bytes)..." << std::endl;
-            send_all(client_socket, (char*)matrix.data(), elements_count * sizeof(int32_t));
+            send_all(client_socket, (char*)&data_header, sizeof(data_header));
+            send_all(client_socket, client_matrix.get_raw_data(), client_matrix.get_byte_size());
 
             PacketHeader data_response;
-            if (recv_all(client_socket, (char*)&data_response, sizeof(data_response)))
+            recv_all(client_socket, (char*)&data_response, sizeof(data_response));
+
+            if (ntohl(data_response.command) == ACK_DATA)
             {
-                if (ntohl(data_response.command) == ACK_DATA)
+                std::cout << "Server confirmed data reception" << std::endl;
+
+                PacketHeader start_hdr;
+                start_hdr.command = htonl(START_TASK);
+                start_hdr.payload_size = htonl(0);
+                send_all(client_socket, (char*)&start_hdr, sizeof(start_hdr));
+
+                PacketHeader start_response;
+                recv_all(client_socket, (char*)&start_response, sizeof(start_response));
+                if (ntohl(start_response.command) == ACK_START) {
+                    std::cout << "Server started processing" << std::endl;
+                }
+
+                std::cout << "\nRequesting result from server..." << std::endl;
+                PacketHeader get_res_hdr;
+                get_res_hdr.command = htonl(GET_RESULT);
+                get_res_hdr.payload_size = htonl(0);
+                send_all(client_socket, (char*)&get_res_hdr, sizeof(get_res_hdr));
+
+                PacketHeader res_header;
+                if (recv_all(client_socket, (char*)&res_header, sizeof(res_header)))
                 {
-                    std::cout << "Server confirmed data reception (ACK_DATA)!" << std::endl;
+                    int res_command = ntohl(res_header.command);
+                    int res_payload_size = ntohl(res_header.payload_size);
+
+                    if (res_command == GET_RESULT && res_payload_size > 0)
+                    {
+                        if (recv_all(client_socket, client_matrix.get_raw_data(), res_payload_size)) {
+                            client_matrix.to_host();
+
+                            std::cout << "Result received! Processed Matrix:" << std::endl;
+                            client_matrix.print_matrix();
+                        }
+                    }
                 }
             }
         }

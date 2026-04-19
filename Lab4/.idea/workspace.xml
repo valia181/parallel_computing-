@@ -25,13 +25,10 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4286850f-ec81-4099-8ffb-cfee0e97aadb" name="Changes" comment="lab4 basic protocol cli+ser">
-      <change afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    <list default="true" id="4286850f-ec81-4099-8ffb-cfee0e97aadb" name="Changes" comment="lab4 default matrix sending">
+      <change afterPath="$PROJECT_DIR$/Matrix.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/client.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/client.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cmake-build-debug/CMakeFiles/clion-Debug-log.txt" beforeDir="false" afterPath="$PROJECT_DIR$/cmake-build-debug/CMakeFiles/clion-Debug-log.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/protocol.h" beforeDir="false" afterPath="$PROJECT_DIR$/protocol.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/server.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/server.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -144,7 +141,7 @@
       <option name="presentableId" value="Default" />
       <updated>1776603799920</updated>
       <workItem from="1776603802038" duration="3042000" />
-      <workItem from="1776606890966" duration="5431000" />
+      <workItem from="1776606890966" duration="11573000" />
     </task>
     <task id="LOCAL-00001" summary="lab4 basic protocol cli+ser">
       <option name="closed" value="true" />
@@ -154,7 +151,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776605795754</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="lab4 default matrix sending">
+      <option name="closed" value="true" />
+      <created>1776615250157</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1776615250157</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -167,6 +172,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="lab4 basic protocol cli+ser" />
-    <option name="LAST_COMMIT_MESSAGE" value="lab4 basic protocol cli+ser" />
+    <MESSAGE value="lab4 default matrix sending" />
+    <option name="LAST_COMMIT_MESSAGE" value="lab4 default matrix sending" />
   </component>
 </project>

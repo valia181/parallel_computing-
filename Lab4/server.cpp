@@ -2,6 +2,8 @@
 #include <vector>
 #include <winsock2.h>
 #include "protocol.h"
+#include "Matrix.cpp"
+#include <thread>
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -57,6 +59,9 @@ int main() {
 
     std::cout << "Client connected!" << std::endl;
 
+    Matrix server_matrix;
+    int active_threads = 0;
+
     while (true)
     {
         PacketHeader header;
@@ -71,14 +76,14 @@ int main() {
 
         if (command == CONFIG)
         {
-            std::cout << "\n[CONFIG] Payload size: " << payload_size << " bytes." << std::endl;
             ConfigPayload payload;
-            if (recv_all(client_socket, (char*)&payload, payload_size)) {
-                int matrix_size = ntohl(payload.matrix_size);
-                int threads = ntohl(payload.threads_count);
+            if (recv_all(client_socket, (char*)&payload, payload_size))
+            {
+                int size = ntohl(payload.matrix_size);
+                active_threads = ntohl(payload.threads_count);
 
-                std::cout << "-> Matrix size: " << matrix_size << "x" << matrix_size << std::endl;
-                std::cout << "-> Threads: " << threads << std::endl;
+                server_matrix.resize(size);
+                std::cout << "\n[CONFIG] Size: " << size << "x" << size << ", Threads: " << active_threads << std::endl;
 
                 PacketHeader response;
                 response.command = htonl(ACK_CONFIG);
@@ -88,29 +93,55 @@ int main() {
         }
         else if (command == SEND_DATA)
         {
-            std::cout << "\n[SEND_DATA] Expecting " << payload_size << " bytes of matrix data." << std::endl;
+            std::cout << "\n[SEND_DATA] Receiving matrix..." << std::endl;
 
-            int elements_count = payload_size / sizeof(int32_t);
-            std::vector<int32_t> matrix(elements_count);
-
-            if (recv_all(client_socket, (char*)matrix.data(), payload_size))
+            if (recv_all(client_socket, server_matrix.get_raw_data(), payload_size))
             {
-                for (int32_t& val : matrix)
-                {
-                    val = ntohl(val);
-                }
-                std::cout << "-> Successfully received matrix of " << elements_count << " elements." << std::endl;
-
-                if (elements_count > 0)
-                {
-                    std::cout << "-> First element: " << matrix.front() << ", Last element: " << matrix.back() << std::endl;
-                }
+                server_matrix.to_host();
+                std::cout << "Matrix successfully received" << std::endl;
 
                 PacketHeader response;
                 response.command = htonl(ACK_DATA);
                 response.payload_size = htonl(0);
                 send_all(client_socket, (char*)&response, sizeof(response));
             }
+        }
+        else if (command == START_TASK)
+        {
+            std::cout << "\n[START_TASK] Processing matrix with " << active_threads << " threads..." << std::endl;
+
+            vector<std::thread> workers;
+            for (int i = 0; i < active_threads; i++)
+            {
+                workers.emplace_back(&Matrix::change_matrix, &server_matrix, active_threads, i);
+            }
+
+            for (auto& t : workers)
+            {
+                t.join();
+            }
+
+            std::cout << "Processing finished" << std::endl;
+
+            PacketHeader response;
+            response.command = htonl(ACK_START);
+            response.payload_size = htonl(0);
+            send_all(client_socket, (char*)&response, sizeof(response));
+        }
+        else if (command == GET_RESULT) {
+            std::cout << "\n[GET_RESULT] Client requested processed matrix." << std::endl;
+
+            server_matrix.to_network();
+
+            PacketHeader response;
+            response.command = htonl(GET_RESULT);
+            response.payload_size = htonl(server_matrix.get_byte_size());
+            send_all(client_socket, (char*)&response, sizeof(response));
+
+            send_all(client_socket, server_matrix.get_raw_data(), server_matrix.get_byte_size());
+
+            server_matrix.to_host();
+            std::cout << "Processed matrix sent to client." << std::endl;
         }
         else
         {

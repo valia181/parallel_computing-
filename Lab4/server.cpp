@@ -1,5 +1,7 @@
 #include <iostream>
+#include <vector>
 #include <winsock2.h>
+#include "protocol.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -8,12 +10,7 @@
 int main() {
     std::cout << "Starting Server..." << std::endl;
 
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
-    {
-        std::cerr << "WSAStartup failed with error: " << WSAGetLastError() << std::endl;
-        return 1;
-    }
+    if (!init_network()) return 1;
 
     SOCKET server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket == INVALID_SOCKET)
@@ -22,7 +19,6 @@ int main() {
         WSACleanup();
         return 1;
     }
-
 
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
@@ -61,17 +57,65 @@ int main() {
 
     std::cout << "Client connected!" << std::endl;
 
-    char buffer[1024] = {0};
-    int bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
-    if (bytes_received > 0) {
-        std::cout << "Received from client: " << buffer << std::endl;
-
-        const char* response = "Pong from Server!";
-        send(client_socket, response, strlen(response), 0);
-        std::cout << "Response sent to client." << std::endl;
-    } else
+    while (true)
     {
-        std::cerr << "Receive failed or client disconnected." << std::endl;
+        PacketHeader header;
+        if (!recv_all(client_socket, (char*)&header, sizeof(header)))
+        {
+            std::cout << "Client disconnected." << std::endl;
+            break;
+        }
+
+        int command = ntohl(header.command);
+        int payload_size = ntohl(header.payload_size);
+
+        if (command == CONFIG)
+        {
+            std::cout << "\n[CONFIG] Payload size: " << payload_size << " bytes." << std::endl;
+            ConfigPayload payload;
+            if (recv_all(client_socket, (char*)&payload, payload_size)) {
+                int matrix_size = ntohl(payload.matrix_size);
+                int threads = ntohl(payload.threads_count);
+
+                std::cout << "-> Matrix size: " << matrix_size << "x" << matrix_size << std::endl;
+                std::cout << "-> Threads: " << threads << std::endl;
+
+                PacketHeader response;
+                response.command = htonl(ACK_CONFIG);
+                response.payload_size = htonl(0);
+                send_all(client_socket, (char*)&response, sizeof(response));
+            }
+        }
+        else if (command == SEND_DATA)
+        {
+            std::cout << "\n[SEND_DATA] Expecting " << payload_size << " bytes of matrix data." << std::endl;
+
+            int elements_count = payload_size / sizeof(int32_t);
+            std::vector<int32_t> matrix(elements_count);
+
+            if (recv_all(client_socket, (char*)matrix.data(), payload_size))
+            {
+                for (int32_t& val : matrix)
+                {
+                    val = ntohl(val);
+                }
+                std::cout << "-> Successfully received matrix of " << elements_count << " elements." << std::endl;
+
+                if (elements_count > 0)
+                {
+                    std::cout << "-> First element: " << matrix.front() << ", Last element: " << matrix.back() << std::endl;
+                }
+
+                PacketHeader response;
+                response.command = htonl(ACK_DATA);
+                response.payload_size = htonl(0);
+                send_all(client_socket, (char*)&response, sizeof(response));
+            }
+        }
+        else
+        {
+            std::cout << "Unknown command: " << command << std::endl;
+        }
     }
 
     closesocket(client_socket);

@@ -1,10 +1,8 @@
 #include <iostream>
-#include <vector>
 #include <winsock2.h>
 #include <thread>
 #include <atomic>
 #include <mutex>
-#include <condition_variable>
 #include "protocol.h"
 #include "Matrix.cpp"
 #include "ThreadPool.cpp"
@@ -19,11 +17,13 @@ const int NETWORK_THREADS_PER_QUEUE = 2;
 const int COMPUTE_QUEUES = 2;
 const int COMPUTE_THREADS_PER_QUEUE = 2;
 
-const int TOTAL_COMPUTE_THREADS = COMPUTE_QUEUES * COMPUTE_THREADS_PER_QUEUE;
-
 void handle_client(SOCKET client_socket, ThreadPool* computePool)
 {
     Matrix server_matrix;
+    std::atomic<int> completed_tasks{0};
+    bool is_processing = false;
+    bool has_data = false;
+    int requested_threads = 1;
 
     std::cout << "[NETWORK WORKER] Handling new client in thread: " << std::this_thread::get_id() << std::endl;
 
@@ -33,6 +33,15 @@ void handle_client(SOCKET client_socket, ThreadPool* computePool)
         if (!recv_all(client_socket, (char*)&header, sizeof(header)))
         {
             std::cout << "[NETWORK WORKER] Client disconnected." << std::endl;
+
+            if (is_processing && completed_tasks < requested_threads)
+            {
+                std::cout << "Waiting for compute threads to finish before closing socket..." << std::endl;
+                while (completed_tasks < requested_threads)
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                }
+            }
             break;
         }
 
@@ -45,25 +54,55 @@ void handle_client(SOCKET client_socket, ThreadPool* computePool)
             if (recv_all(client_socket, (char*)&payload, payload_size))
             {
                 int size = ntohl(payload.matrix_size);
+                requested_threads = ntohl(payload.num_threads);
+                int total_elements = size * size;
+                requested_threads = std::min(requested_threads, total_elements);
 
-                server_matrix.resize(size);
+                try {
+                    if (size <= 0 || size > 15000 || requested_threads <= 0 || requested_threads > 100)
+                    {
+                        throw std::length_error("Matrix size or thread is out of allowed bounds!");
+                    }
+                    server_matrix.resize(size);
 
-                std::cout << "\n[CONFIG] Size: " << size << "x" << size << std::endl;
+                    std::cout << "\n[CONFIG] Size: " << size << "x" << size << std::endl;
 
-                PacketHeader response;
-                response.command = htonl(ACK_CONFIG);
-                response.payload_size = htonl(0);
-                send_all(client_socket, (char*)&response, sizeof(response));
+                    PacketHeader response;
+                    response.command = htonl(ACK_CONFIG);
+                    response.payload_size = htonl(0);
+                    send_all(client_socket, (char*)&response, sizeof(response));
+                }
+                catch (const std::exception& e)
+                {
+                    std::cerr << "\n[ERROR] Failed to allocate memory for matrix: " << e.what() << std::endl;
+
+                    PacketHeader response;
+                    response.command = htonl(ERR_BAD_DATA);
+                    response.payload_size = htonl(0);
+                    send_all(client_socket, (char*)&response, sizeof(response));
+                    break;
+                }
             }
         }
         else if (command == SEND_DATA)
         {
             std::cout << "\n[SEND_DATA] Receiving matrix..." << std::endl;
 
+            if (payload_size <= 0)
+            {
+                std::cerr << "[ERROR] Client sent SEND_DATA with 0 or negative payload size." << std::endl;
+                PacketHeader response;
+                response.command = htonl(ERR_NO_DATA);
+                response.payload_size = htonl(0);
+                send_all(client_socket, (char*)&response, sizeof(response));
+                continue;
+            }
+
             if (recv_all(client_socket, server_matrix.get_raw_data(), payload_size))
             {
                 server_matrix.to_host();
                 std::cout << "Matrix successfully received" << std::endl;
+                has_data = true;
 
                 PacketHeader response;
                 response.command = htonl(ACK_DATA);
@@ -73,38 +112,54 @@ void handle_client(SOCKET client_socket, ThreadPool* computePool)
         }
         else if (command == START_TASK)
         {
-            std::cout << "\n[START_TASK] Sending matrix to ComputePool (" << TOTAL_COMPUTE_THREADS << " tasks)..." << std::endl;
-
-            std::atomic<int> completed_tasks{0};
-            std::mutex wait_mtx;
-            std::condition_variable wait_cv;
-
-            for (int i = 0; i < TOTAL_COMPUTE_THREADS; i++)
+            if (!has_data)
             {
-                Task compute_task([&server_matrix, i, &completed_tasks, &wait_mtx, &wait_cv]()
+                std::cerr << "[ERROR] Client requested START_TASK but no data was sent!" << std::endl;
+                PacketHeader response;
+                response.command = htonl(ERR_NO_DATA);
+                response.payload_size = htonl(0);
+                send_all(client_socket, (char*)&response, sizeof(response));
+                continue;
+            }
+
+            std::cout << "\n[START_TASK] Sending matrix to ComputePool (" << requested_threads << " tasks)..." << std::endl;
+
+            completed_tasks = 0;
+            is_processing = true;
+
+            for (int i = 0; i < requested_threads; i++)
+            {
+                Task compute_task([&server_matrix, i, &completed_tasks, requested_threads]()
                                   {
-                                      server_matrix.change_matrix(TOTAL_COMPUTE_THREADS, i);
-
-                                      int current_completed = ++completed_tasks;
-
-                                      if (current_completed == TOTAL_COMPUTE_THREADS)
-                                      {
-                                          std::lock_guard<std::mutex> lock(wait_mtx);
-                                          wait_cv.notify_one();
-                                      }
+                                      server_matrix.change_matrix(requested_threads, i);
+                                      completed_tasks++;
                                   }, i);
 
                 computePool->add_task(compute_task);
             }
-
-            std::unique_lock<std::mutex> lock(wait_mtx);
-            wait_cv.wait(lock, [&]() { return completed_tasks == TOTAL_COMPUTE_THREADS; });
-
-            std::cout << "Processing finished in ComputePool" << std::endl;
-
+            std::cout << "Tasks dispatched. Replying ACK_START to client." << std::endl;
             PacketHeader response;
             response.command = htonl(ACK_START);
             response.payload_size = htonl(0);
+            send_all(client_socket, (char*)&response, sizeof(response));
+        }
+        else if (command == GET_STATUS)
+        {
+            PacketHeader response;
+            response.payload_size = htonl(0);
+
+            if (is_processing && completed_tasks == requested_threads)
+            {
+                response.command = htonl(STATUS_DONE);
+                is_processing = false;
+            } else if (is_processing)
+            {
+                response.command = htonl(STATUS_IN_PROGRESS);
+            } else
+            {
+                response.command = htonl(ERR_NOT_READY);
+            }
+
             send_all(client_socket, (char*)&response, sizeof(response));
         }
         else if (command == GET_RESULT)

@@ -12,6 +12,7 @@
 int main() {
     srand(static_cast<unsigned int>(time(0)) ^ GetCurrentProcessId());
     int MATRIX_SIZE = (rand() % 8) + 2;
+    int NUM_THREADS = 4;
 
     std::cout << "Starting Client..." << std::endl;
 
@@ -47,6 +48,7 @@ int main() {
 
     ConfigPayload payload;
     payload.matrix_size = htonl(MATRIX_SIZE);
+    payload.num_threads = htonl(NUM_THREADS);
     send_all(client_socket, (char*)&payload, sizeof(payload));
 
     std::cout << "Configuration sent. Waiting for confirmation..." << std::endl;
@@ -54,13 +56,14 @@ int main() {
     PacketHeader response;
     if (recv_all(client_socket, (char*)&response, sizeof(response)))
     {
-        if (ntohl(response.command) == ACK_CONFIG)
+        int response_cmd = ntohl(response.command);
+        if (response_cmd == ACK_CONFIG)
         {
             std::cout << "Server confirmed configuration (ACK_CONFIG)!" << std::endl;
 
             Matrix client_matrix(MATRIX_SIZE);
             std::cout << "Original Matrix:" << std::endl;
-            client_matrix.print_matrix();
+            //client_matrix.print_matrix();
 
             client_matrix.to_network();
 
@@ -72,46 +75,88 @@ int main() {
             send_all(client_socket, client_matrix.get_raw_data(), client_matrix.get_byte_size());
 
             PacketHeader data_response;
-            recv_all(client_socket, (char*)&data_response, sizeof(data_response));
-
-            if (ntohl(data_response.command) == ACK_DATA)
+            if(recv_all(client_socket, (char*)&data_response, sizeof(data_response)))
             {
-                std::cout << "Server confirmed data reception" << std::endl;
+                int data_cmd = ntohl(data_response.command);
 
-                PacketHeader start_hdr;
-                start_hdr.command = htonl(START_TASK);
-                start_hdr.payload_size = htonl(0);
-                send_all(client_socket, (char*)&start_hdr, sizeof(start_hdr));
-
-                PacketHeader start_response;
-                recv_all(client_socket, (char*)&start_response, sizeof(start_response));
-                if (ntohl(start_response.command) == ACK_START) {
-                    std::cout << "Server started processing" << std::endl;
-                }
-
-                std::cout << "\nRequesting result from server..." << std::endl;
-                PacketHeader get_res_hdr;
-                get_res_hdr.command = htonl(GET_RESULT);
-                get_res_hdr.payload_size = htonl(0);
-                send_all(client_socket, (char*)&get_res_hdr, sizeof(get_res_hdr));
-
-                PacketHeader res_header;
-                if (recv_all(client_socket, (char*)&res_header, sizeof(res_header)))
+                if (ntohl(data_response.command) == ACK_DATA)
                 {
-                    int res_command = ntohl(res_header.command);
-                    int res_payload_size = ntohl(res_header.payload_size);
+                    std::cout << "Server confirmed data reception" << std::endl;
 
-                    if (res_command == GET_RESULT && res_payload_size > 0)
-                    {
-                        if (recv_all(client_socket, client_matrix.get_raw_data(), res_payload_size)) {
-                            client_matrix.to_host();
+                    PacketHeader start_hdr;
+                    start_hdr.command = htonl(START_TASK);
+                    start_hdr.payload_size = htonl(0);
+                    send_all(client_socket, (char *) &start_hdr, sizeof(start_hdr));
 
-                            std::cout << "Result received! Processed Matrix:" << std::endl;
-                            client_matrix.print_matrix();
+                    PacketHeader start_response;
+                    recv_all(client_socket, (char *) &start_response, sizeof(start_response));
+                    if (ntohl(start_response.command) == ACK_START) {
+                        std::cout << "Server started processing" << std::endl;
+
+                        bool is_done = false;
+                        while (!is_done) {
+                            PacketHeader status_req;
+                            status_req.command = htonl(GET_STATUS);
+                            status_req.payload_size = htonl(0);
+                            send_all(client_socket, (char *) &status_req, sizeof(status_req));
+
+                            PacketHeader status_res;
+                            if (recv_all(client_socket, (char *) &status_res, sizeof(status_res))) {
+                                int status = ntohl(status_res.command);
+
+                                if (status == STATUS_IN_PROGRESS) {
+                                    std::cout << "Status: In progress... waiting." << std::endl;
+                                    Sleep(50);
+                                } else if (status == STATUS_DONE) {
+                                    std::cout << "Status: DONE!" << std::endl;
+                                    is_done = true;
+                                } else {
+                                    std::cerr << "Unexpected status received: " << status << std::endl;
+                                    break;
+                                }
+                            } else {
+                                std::cerr << "Connection lost during status check." << std::endl;
+                                break;
+                            }
+                        }
+
+                        if (is_done) {
+                            std::cout << "\nRequesting final result from server..." << std::endl;
+                            PacketHeader get_res_hdr;
+                            get_res_hdr.command = htonl(GET_RESULT);
+                            get_res_hdr.payload_size = htonl(0);
+                            send_all(client_socket, (char *) &get_res_hdr, sizeof(get_res_hdr));
+
+                            PacketHeader res_header;
+                            if (recv_all(client_socket, (char *) &res_header, sizeof(res_header))) {
+                                int res_command = ntohl(res_header.command);
+                                int res_payload_size = ntohl(res_header.payload_size);
+
+                                if (res_command == GET_RESULT && res_payload_size > 0) {
+                                    if (recv_all(client_socket, client_matrix.get_raw_data(), res_payload_size)) {
+                                        client_matrix.to_host();
+
+                                        std::cout << "Result received! Processed Matrix:" << std::endl;
+                                        //client_matrix.print_matrix();
+                                    }
+                                }
+                            }
                         }
                     }
                 }
+                else if (data_cmd == ERR_NO_DATA)
+                {
+                    std::cerr << "Error: Server reported missing or empty data (ERR_NO_DATA)." << std::endl;
+                }
             }
+        }
+        else if (response_cmd == ERR_BAD_DATA)
+        {
+            std::cerr << "Error: Server rejected configuration (ERR_BAD_DATA). Matrix might be too large." << std::endl;
+        }
+        else
+        {
+            std::cerr << "Error: Unexpected response from server: " << response_cmd << std::endl;
         }
     } else
     {

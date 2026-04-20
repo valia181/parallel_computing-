@@ -61,7 +61,8 @@ bool send_all(SOCKET s, const char* buffer, int length)
 bool recv_all(SOCKET s, char* buffer, int length)
 {
     int total_read = 0;
-    while (total_read < length) {
+    while (total_read < length)
+    {
         int bytes_read = recv(s, buffer + total_read, length - total_read, 0);
         if (bytes_read <= 0) return false;
         total_read += bytes_read;

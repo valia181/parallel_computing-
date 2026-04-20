@@ -9,10 +9,10 @@
 #define PORT 666
 #define SERVER_ADDR "127.0.0.1"
 
-int MATRIX_SIZE = (rand() % 8) + 2;
-int THREADS = 3;
-
 int main() {
+    srand(static_cast<unsigned int>(time(0)) ^ GetCurrentProcessId());
+    int MATRIX_SIZE = (rand() % 8) + 2;
+
     std::cout << "Starting Client..." << std::endl;
 
     if (!init_network()) return 1;
@@ -47,7 +47,6 @@ int main() {
 
     ConfigPayload payload;
     payload.matrix_size = htonl(MATRIX_SIZE);
-    payload.threads_count = htonl(THREADS);
     send_all(client_socket, (char*)&payload, sizeof(payload));
 
     std::cout << "Configuration sent. Waiting for confirmation..." << std::endl;

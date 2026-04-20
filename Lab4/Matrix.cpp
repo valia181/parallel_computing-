@@ -31,10 +31,11 @@ public:
 
     void init_matrix()
     {
-        srand(time(0));
+        srand(static_cast<unsigned int>(time(0)) ^ GetCurrentProcessId());
+
         for (int i = 0; i < size * size; i++)
         {
-            data[i] = rand() % 100;
+            data[i] = (rand() % 100) + 1;
         }
     }
 

@@ -32,7 +32,6 @@ struct PacketHeader {
 
 struct ConfigPayload {
     int32_t matrix_size;
-    int32_t threads_count;
 };
 
 bool init_network()
